@@ -51,4 +51,3 @@ plt.imshow(img3, cmap="gray", vmin=0.0, vmax=255.0)
 plt.title("Convolution - filter2D")
 
 plt.show()
-# plt.savefig("test.png")
