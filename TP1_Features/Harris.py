@@ -1,7 +1,35 @@
 import numpy as np
 import cv2
-
 from matplotlib import pyplot as plt
+from datetime import datetime
+
+
+def get_harris_corners(img):
+    Theta = cv2.copyMakeBorder(img, 0, 0, 0, 0, cv2.BORDER_REPLICATE)
+
+    derivative_x = cv2.Sobel(Theta, cv2.CV_64F, dx=1, dy=0, ksize=3)
+    derivative_y = cv2.Sobel(Theta, cv2.CV_64F, dx=0, dy=1, ksize=3)
+
+    derivative_xx = np.square(derivative_x)
+    derivative_xy = np.multiply(derivative_x, derivative_y)
+    derivative_yy = np.square(derivative_y)
+
+    # Here Gaussian filter is used. One can also use mean with kernel as np.ones((3, 3))
+    kernel = np.random.normal(1, 1, (3, 3))
+
+    derivative_xx = cv2.filter2D(derivative_xx, -1, kernel)
+    derivative_xy = cv2.filter2D(derivative_xy, -1, kernel)
+    derivative_yy = cv2.filter2D(derivative_yy, -1, kernel)
+
+    det_M = np.multiply(derivative_xx, derivative_yy) - np.square(derivative_xy)
+    trace_M = derivative_xx + derivative_yy
+
+    # A typical value for k is in the range of 0.04 to 0.06
+    k = 0.04
+    Theta = det_M - k * np.square(trace_M)
+
+    return Theta
+
 
 # Lecture image en niveau de gris et conversion en float64
 img = np.float64(cv2.imread("../Image_Pairs/Graffiti0.png", cv2.IMREAD_GRAYSCALE))
@@ -9,30 +37,8 @@ img = np.float64(cv2.imread("../Image_Pairs/Graffiti0.png", cv2.IMREAD_GRAYSCALE
 print("Dimension de l'image :", h, "lignes x", w, "colonnes")
 print("Type de l'image :", img.dtype)
 
-# Début du calcul
 t1 = cv2.getTickCount()
-Theta = cv2.copyMakeBorder(img, 0, 0, 0, 0, cv2.BORDER_REPLICATE)
-
-derivative_x = cv2.Sobel(Theta, cv2.CV_64F, dx=1, dy=0, ksize=3)
-derivative_y = cv2.Sobel(Theta, cv2.CV_64F, dx=0, dy=1, ksize=3)
-
-derivative_xx = np.square(derivative_x)
-derivative_xy = np.multiply(derivative_x, derivative_y)
-derivative_yy = np.square(derivative_y)
-
-# Here Gaussian filter is used. One can also use mean with kernel as np.ones((3, 3))
-kernel = np.random.normal(1, 1, (3, 3))
-
-derivative_xx = cv2.filter2D(derivative_xx, -1, kernel)
-derivative_xy = cv2.filter2D(derivative_xy, -1, kernel)
-derivative_yy = cv2.filter2D(derivative_yy, -1, kernel)
-
-det_M = np.multiply(derivative_xx, derivative_yy) - np.square(derivative_xy)
-trace_M = derivative_xx + derivative_yy
-
-# A typical value for k is in the range of 0.04 to 0.06
-k = 0.04
-Theta = det_M - k * np.square(trace_M)
+Theta = get_harris_corners(img)
 
 # Calcul des maxima locaux et seuillage
 Theta_maxloc = cv2.copyMakeBorder(Theta, 0, 0, 0, 0, cv2.BORDER_REPLICATE)
@@ -46,10 +52,14 @@ Theta_maxloc[Theta < Theta_dil] = 0.0
 
 # On néglige également les valeurs trop faibles
 Theta_maxloc[Theta < seuil_relatif * Theta.max()] = 0.0
+
 t2 = cv2.getTickCount()
-time = (t2 - t1) / cv2.getTickFrequency()
-print("Mon calcul des points de Harris :", time, "s")
+
+computational_time = (t2 - t1) / cv2.getTickFrequency()
+print("Mon calcul des points de Harris :", computational_time, "s")
 print("Nombre de cycles par pixel :", (t2 - t1) / (h * w), "cpp")
+
+plt.figure(figsize=(6, 3))
 
 plt.subplot(131)
 plt.imshow(img, cmap="gray")
@@ -84,4 +94,5 @@ plt.subplot(133)
 plt.imshow(Img_pts)
 plt.title("Points de Harris")
 
+plt.savefig(f"harris-{datetime.now()}.png")
 plt.show()
